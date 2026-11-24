@@ -28,3 +28,88 @@ ggplot(movies, aes(x = tomatoMeter)) +
     y = "Count"
   )
 ```
+
+```{r}
+movies_gap <- movies_clean |>
+  filter(
+    is.na(tomatoMeter) | tomatoMeter != 0,
+    is.na(audienceScore) | audienceScore != 0
+  ) |>
+  mutate(gap = tomatoMeter - audienceScore)
+
+movies_summary <- movies_gap |>
+  group_by(genre) |>
+  summarise(mean_gap = mean(gap, na.rm = TRUE), n = n()) |>
+  filter(n >= 100) |>
+  arrange(mean_gap)
+```
+
+```{r}
+ggplot(movies_summary, aes(x = mean_gap, y = fct_reorder(genre, desc(mean_gap)))) +
+  geom_col() +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray50") +
+  labs(
+    title = "Average Critic-Audience Score Gap by Genre",
+    subtitle = "Negative gaps favor audiences; positive gaps favor critics. Genres shown have at least 100 rows.",
+    x = "Mean score gap (Tomatometer - audience score)",
+    y = "Genre"
+  )
+```
+
+```{r}
+spiderman <- movies |>
+  filter(title %in% c(
+    "Spider-Man",
+    "Spider-Man 2",
+    "Spider-Man 3",
+    "The Amazing Spider-Man",
+    "The Amazing Spider-Man 2",
+    "Spider-Man: Homecoming",
+    "Spider-Man: Far From Home",
+    "Spider-Man: No Way Home"
+  )) |>
+  mutate(
+    actor = case_when(
+      title %in% c("Spider-Man", "Spider-Man 2", "Spider-Man 3") ~ "Tobey Maguire",
+      title %in% c("The Amazing Spider-Man", "The Amazing Spider-Man 2") ~ "Andrew Garfield",
+      title %in% c(
+        "Spider-Man: Homecoming",
+        "Spider-Man: Far From Home",
+        "Spider-Man: No Way Home"
+      ) ~ "Tom Holland"
+    )
+  ) |>
+  arrange(releaseDateTheaters)
+
+spiderman |>
+  pivot_longer(
+    cols = c(tomatoMeter, audienceScore),
+    names_to = "score_source",
+    values_to = "score"
+  ) |>
+  mutate(
+    title = factor(title, levels = spiderman$title),
+    score_source = recode(
+      score_source,
+      tomatoMeter = "Tomatometer",
+      audienceScore = "Audience"
+    )
+  ) |>
+  ggplot(aes(x = title, y = score, color = score_source, group = score_source)) +
+  geom_line() +
+  geom_point() +
+  labs(
+    title = "Critics Score the Films Slightly Higher Overall",
+    subtitle = paste0(
+      "Mean scores: ",
+      round(mean(spiderman$tomatoMeter), 1),
+      " critics vs. ",
+      round(mean(spiderman$audienceScore), 1),
+      " audiences."
+    ),
+    x = "Film (release order)",
+    y = "Score",
+    color = "Score source"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
